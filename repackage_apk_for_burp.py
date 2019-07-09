@@ -5,29 +5,12 @@ import os
 import shutil
 import argparse
 import urllib.request
-import xml.etree.ElementTree as etree
 
 
 __author__ = "Jake Miller (@LaconicWolf)"
 __date__ = "20190705"
 __version__ = "0.01"
 __description__ = '''A script to repackage an APK file to allow a user-installed SSL certificate.'''
-
-
-def enqueue_output(out, queue):
-    for line in iter(out.readline, b''):
-        queue.put(line)
-    out.close()
-
-
-def getOutput(outQueue):
-    outStr = ''
-    try:
-        while True: #Adds output from the Queue until it is empty
-            outStr+=outQueue.get_nowait()
-
-    except Empty:
-        return outStr
 
 
 def check_for_tools(name):
