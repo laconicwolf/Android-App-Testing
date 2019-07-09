@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+import sys
+
+if not sys.version.startswith('3'):
+    print('\n[-] This script will only work with Python3. Sorry!\n')
+    exit()
+
 import subprocess
 import os
 import shutil

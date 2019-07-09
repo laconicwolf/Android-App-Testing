@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+import sys
+
+if not sys.version.startswith('3'):
+    print('\n[-] This script will only work with Python3. Sorry!\n')
+    exit()
+
 import urllib.request
 import subprocess
 import os
@@ -257,7 +263,7 @@ if __name__ == '__main__':
                         nargs='?',
                         const="127.0.0.1:8080",
                         default="127.0.0.1:8080",
-                        help="specify a proxy to use (default 127.0.0.1:8080)")
+                        help="Specify a proxy to use (default 127.0.0.1:8080)")
     args = parser.parse_args()
 
     if args.proxy.startswith('http'):
