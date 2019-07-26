@@ -52,12 +52,32 @@ def search_text_for_root_detection_strings(textfile):
     regex = re.compile('|'.join(re.escape(x) for x in root_detection_strings))
     found = regex.findall(contents)
     if found:
-        print("{} : {}".format(textfile, found))
+        method_name, matched_string = find_parent_method(contents, found)
+        print("{}, {}, {}".format(textfile, method_name, matched_string))
+
+
+def find_parent_method(file_contents, string_list):
+    """Return the name of a method where a string is found."""
+    start_method_indices = [c.start() for c in re.finditer('\.method', file_contents)]
+    end_method_indices = [c.start() for c in re.finditer('\.end method', file_contents)]
+    for index in zip(start_method_indices, end_method_indices):
+        method = file_contents[index[0]:index[1]]
+        for string in string_list:
+            if string in method:
+                method_name = method.split('\n')[0]
+                return method_name, string
 
 
 def main():
     root_dir = '.'
+    print('[*] Checking for .smali files...')
     smali_file_list = find_smali_files(root_dir)
+    if smali_file_list:
+        print('[+] Found {} .smali files.'.format(len(smali_file_list)))
+    else:
+        print('[-] No .smali files found while searching recursively from {}.'.format(os.getcwd()))
+        exit()
+    print('[*] Searching files for strings that are commonly used for root detection...')
     with Pool(int(cpu_count()/2)) as p:
         p.map(search_text_for_root_detection_strings, smali_file_list)
 
