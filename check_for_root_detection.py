@@ -57,6 +57,7 @@ def search_text_for_root_detection_strings(textfile):
             method_name, matched_string = find_parent_method(contents, item)
             with print_lock:
                 print("{}, {}, {}".format(textfile, method_name, matched_string))
+            method_paths.append(make_method_path(textfile, method_name))
 
 
 def find_parent_method(file_contents, string):
@@ -67,25 +68,58 @@ def find_parent_method(file_contents, string):
         method = file_contents[index[0]:index[1]]
         if string in method:
             method_name = method.split('\n')[0]
-            method_names.append(method_name)
             return method_name, string
 
 
-def find_method_invocation(method):
-    """Takes a method name and attempts to find where that 
-    method is called, then repeats the process until it traces
-    the last call."""
-    pass
+def find_method_invocation(filename, methods=None):
+    """Reads a file to check if a method is called.
+    """
+    methods = methods if methods else method_paths
+    with open(filename) as fh:
+        contents = fh.read()
+    regex = re.compile('|'.join(re.escape(x) for x in methods))
+    found = regex.findall(contents)
+    if found:
+        for item in found:
+            method_name, matched_string = find_parent_method(contents, item)
+            with print_lock:
+                print(("[+] The method {},\n"
+                      #"    contained the string {},\n"
+                      "    was called in the file {},\n"
+                      "    from the method {}").format(item, filename, method_name.split(' ')[-1]))
 
 
+def make_method_path(file_path, method):
+    """Transforms/combines a file path and method name to easier 
+    search for its invocation.
+    """
+    if os.sep == '\\':
+        file_path = file_path.replace('\\', '/')
+    if file_path.startswith('./smali/'):
+        file_path = file_path.replace('./smali/', '')
+    if file_path.endswith('.smali'):
+        file_path = file_path.replace('.smali', '')
+    method = method.split(' ')[-1]
+    return file_path + ';->' + method
 
-def manage_queue():
+
+def manage_root_detect_queue():
     """Manages the smali file queue and calls the 
     search_text_for_root_detection_strings function.
     """
     while True:
         current_filename = file_queue.get()
         search_text_for_root_detection_strings(current_filename)
+        file_queue.task_done()
+
+
+def manage_method_invoke_queue():
+    """Manages the smali file queue and calls the 
+    search_text_for_root_detection_strings function.
+    """
+    while True:
+        current_filename = file_queue.get()
+        find_method_invocation(current_filename)
         file_queue.task_done()
 
 
@@ -100,8 +134,19 @@ def main():
         exit()
     print('[*] Searching files for strings that are commonly used for root detection...')
 
-    for i in range(number_of_threads):
-        t = threading.Thread(target=manage_queue)
+    for i in range(20):
+        t = threading.Thread(target=manage_root_detect_queue)
+        t.daemon = True
+        t.start()
+
+    for current_file in smali_file_list:
+        file_queue.put(current_file)
+    file_queue.join()
+
+    print("[*] Searching .smali files for the method invocations...")
+
+    for i in range(20):
+        t = threading.Thread(target=manage_method_invoke_queue)
         t.daemon = True
         t.start()
 
@@ -111,11 +156,10 @@ def main():
 
 if __name__ == '__main__':
 
-    # Shared variables for the threads
-
     method_names = []
+    method_paths = []
+    #method_call_tree = {}
 
-    number_of_threads = 30
     print_lock = threading.Lock()
     file_queue = Queue()
 
