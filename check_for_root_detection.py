@@ -17,7 +17,8 @@ if not sys.version.startswith('3'):
 
 import os
 import re
-from multiprocessing import Pool, cpu_count
+import threading
+from queue import Queue
 
 
 def find_smali_files(root_dir):
@@ -52,20 +53,40 @@ def search_text_for_root_detection_strings(textfile):
     regex = re.compile('|'.join(re.escape(x) for x in root_detection_strings))
     found = regex.findall(contents)
     if found:
-        method_name, matched_string = find_parent_method(contents, found)
-        print("{}, {}, {}".format(textfile, method_name, matched_string))
+        for item in found:
+            method_name, matched_string = find_parent_method(contents, item)
+            with print_lock:
+                print("{}, {}, {}".format(textfile, method_name, matched_string))
 
 
-def find_parent_method(file_contents, string_list):
+def find_parent_method(file_contents, string):
     """Return the name of a method where a string is found."""
     start_method_indices = [c.start() for c in re.finditer('\.method', file_contents)]
     end_method_indices = [c.start() for c in re.finditer('\.end method', file_contents)]
     for index in zip(start_method_indices, end_method_indices):
         method = file_contents[index[0]:index[1]]
-        for string in string_list:
-            if string in method:
-                method_name = method.split('\n')[0]
-                return method_name, string
+        if string in method:
+            method_name = method.split('\n')[0]
+            method_names.append(method_name)
+            return method_name, string
+
+
+def find_method_invocation(method):
+    """Takes a method name and attempts to find where that 
+    method is called, then repeats the process until it traces
+    the last call."""
+    pass
+
+
+
+def manage_queue():
+    """Manages the smali file queue and calls the 
+    search_text_for_root_detection_strings function.
+    """
+    while True:
+        current_filename = file_queue.get()
+        search_text_for_root_detection_strings(current_filename)
+        file_queue.task_done()
 
 
 def main():
@@ -78,9 +99,24 @@ def main():
         print('[-] No .smali files found while searching recursively from {}.'.format(os.getcwd()))
         exit()
     print('[*] Searching files for strings that are commonly used for root detection...')
-    with Pool(int(cpu_count()/2)) as p:
-        p.map(search_text_for_root_detection_strings, smali_file_list)
 
+    for i in range(number_of_threads):
+        t = threading.Thread(target=manage_queue)
+        t.daemon = True
+        t.start()
+
+    for current_file in smali_file_list:
+        file_queue.put(current_file)
+    file_queue.join()
 
 if __name__ == '__main__':
+
+    # Shared variables for the threads
+
+    method_names = []
+
+    number_of_threads = 30
+    print_lock = threading.Lock()
+    file_queue = Queue()
+
     main()
