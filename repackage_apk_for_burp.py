@@ -21,10 +21,7 @@ __description__ = '''A script to repackage an APK file to allow a user-installed
 
 def check_for_tools(name):
     """Checks to see whether the tool name is in current directory or in the PATH"""
-    if is_in_dir(name) or is_in_path(name):
-        return True
-    else:
-        return False
+    return ( (is_in_dir(name) or is_in_path(name))==True )
 
 
 def is_in_path(name):
